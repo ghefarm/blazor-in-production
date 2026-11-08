@@ -1,0 +1,191 @@
+@page "/admin"
+@inject ForesightApi Api
+@inject CircuitTokenStore Tokens
+@inject NavigationManager Nav
+
+<PageTitle>Admin</PageTitle>
+
+<h1>Admin</h1>
+
+@* The page decides nothing. It asks the API whether this is the admin,
+   and every card calls the API, which answers 403 to everyone else. *@
+
+@if (!checkedAdmin)
+{
+    <p>Loading...</p>
+}
+else if (notAdmin is not null)
+{
+    <p>This page is for the admin.</p>
+}
+else
+{
+    <section>
+        <h2>Posting</h2>
+        @if (posting is { } on)
+        {
+            <p>The scheduler posts: <strong>@(on ? "on" : "off")</strong>.
+               A change counts from its next run.</p>
+            <button @onclick="() => SetPostingAsync(!on)" disabled="@busy">
+                @(on ? "Stop posting" : "Start posting")
+            </button>
+        }
+        <p class="error">@postingError</p>
+    </section>
+
+    <section>
+        <h2>Post by hand</h2>
+        <p>Read each post, change the words if you like, then send it. The
+           tier decides the channel.</p>
+        <select @bind="feed">
+            <option value="weather">weather</option>
+            <option value="transit">transit</option>
+        </select>
+        <button @onclick="LoadDraftsAsync" disabled="@busy">Load today</button>
+        <p class="error">@draftError</p>
+        @foreach (var d in drafts)
+        {
+            <div class="draft">
+                <h3>@d.Title (@(d.Premium ? "premium" : "free") channel)</h3>
+                <textarea rows="4" @bind="texts[d.EventId]"></textarea>
+                <button @onclick="() => SendAsync(d)" disabled="@busy">
+                    Send</button>
+                <p>@results.GetValueOrDefault(d.EventId)</p>
+            </div>
+        }
+    </section>
+
+    <section>
+        <h2>Accounts</h2>
+        <p>Act only after a mail to the account's address confirmed who is
+           asking.</p>
+        <p>@accountMessage</p>
+        <table>
+            <tr><th>Email</th><th>Two-factor</th><th>Premium until</th>
+                <th></th></tr>
+            @foreach (var a in accounts)
+            {
+                <tr>
+                    <td>@a.Email</td>
+                    <td>@(a.TwoFactor ? "on" : "off")</td>
+                    <td>@a.PremiumUntilUtc?.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        @if (confirm == a.Email)
+                        {
+                            <button @onclick="() => DeleteAsync(a.Email)"
+                                    disabled="@busy">Yes, delete</button>
+                            <button @onclick="() => confirm = null">No</button>
+                        }
+                        else
+                        {
+                            <button @onclick="() => confirm = a.Email">
+                                Delete</button>
+                        }
+                        @if (a.TwoFactor)
+                        {
+                            <button @onclick="() => TwoFactorOffAsync(a.Email)"
+                                    disabled="@busy">Two-factor off</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </table>
+    </section>
+}
+
+@code {
+    private bool checkedAdmin;
+    private string? notAdmin;
+    private bool? posting;
+    private string? postingError;
+    private string feed = "weather";
+    private List<ChannelDraft> drafts = [];
+    private readonly Dictionary<string, string> texts = new();
+    private readonly Dictionary<string, string> results = new();
+    private string? draftError;
+    private List<AdminAccount> accounts = [];
+    private string? accountMessage;
+    private string? confirm;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A typed address starts a new circuit without a token (chapter 4):
+        // sign in, and the login page brings the admin back here.
+        if (Tokens.Token is null)
+        {
+            Nav.NavigateTo("/login?returnUrl=/admin");
+            return;
+        }
+
+        notAdmin = (await Api.AdminCheckAsync()).Error;
+        checkedAdmin = true;
+        if (notAdmin is not null) return;
+
+        var state = await Api.PostingAsync();
+        posting = state.Value?.On;
+        postingError = state.Error;
+        await LoadAccountsAsync();
+    }
+
+    private async Task SetPostingAsync(bool on)
+    {
+        busy = true;
+        var state = await Api.SetPostingAsync(on);
+        busy = false;
+        posting = state.Value?.On ?? posting;
+        postingError = state.Error;
+    }
+
+    private async Task LoadDraftsAsync()
+    {
+        busy = true;
+        var answer = await Api.ChannelDraftsAsync(feed);
+        busy = false;
+
+        draftError = answer.Error;
+        drafts = answer.Value ?? [];
+        texts.Clear();
+        results.Clear();
+        foreach (var d in drafts)
+            texts[d.EventId] = d.Text;
+    }
+
+    private async Task SendAsync(ChannelDraft draft)
+    {
+        busy = true;
+        var answer = await Api.PostToChannelAsync(
+            new ChannelPost(draft.Premium, texts[draft.EventId]));
+        busy = false;
+
+        // A post cannot be taken back from people's phones, so the page
+        // says exactly what happened, and sends nothing twice by itself.
+        results[draft.EventId] = answer.Ok ? "Sent." : answer.Error!;
+    }
+
+    private async Task LoadAccountsAsync()
+    {
+        var answer = await Api.AccountsAsync();
+        accounts = answer.Value ?? [];
+        accountMessage = answer.Error ?? accountMessage;
+    }
+
+    private async Task DeleteAsync(string email)
+    {
+        busy = true;
+        var answer = await Api.AdminDeleteAsync(email);
+        busy = false;
+        confirm = null;
+        accountMessage = answer.Value?.Message ?? answer.Error;
+        await LoadAccountsAsync();
+    }
+
+    private async Task TwoFactorOffAsync(string email)
+    {
+        busy = true;
+        var answer = await Api.AdminTwoFactorOffAsync(email);
+        busy = false;
+        accountMessage = answer.Value?.Message ?? answer.Error;
+        await LoadAccountsAsync();
+    }
+}

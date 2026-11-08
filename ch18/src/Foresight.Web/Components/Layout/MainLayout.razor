@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject CircuitTokenStore Tokens
+@inject NavigationManager Nav
+
+<VisitorRegionCapture />
+
+<header>
+    <a href="/" class="brand">Foresight</a>
+    <nav>
+        <a href="/vote">Vote</a>
+        @if (Tokens.Email is { } email)
+        {
+            <span>@email</span>
+            <a href="/subscribe">Premium</a>
+            <a href="/account/two-factor">Two-factor sign-in</a>
+            <button class="link" @onclick="SignOut">Sign out</button>
+        }
+        else
+        {
+            <a href="/login">Sign in</a>
+            <a href="/register">Register</a>
+        }
+    </nav>
+</header>
+
+<main>
+    @Body
+</main>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    protected override void OnInitialized() => Tokens.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private void SignOut()
+    {
+        Tokens.SignOut();
+        Nav.NavigateTo("/");
+    }
+
+    public void Dispose() => Tokens.Changed -= Refresh;
+}

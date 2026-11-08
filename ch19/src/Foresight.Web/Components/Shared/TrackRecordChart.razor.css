@@ -1,0 +1,90 @@
+.chart {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    margin: 1rem 0;
+}
+
+.axis {
+    position: relative;
+    height: 12rem;
+    font-size: 0.8rem;
+}
+
+.axis span {
+    position: absolute;
+    right: 0.4rem;
+    transform: translateY(-50%);
+}
+
+.plot {
+    position: relative;
+    height: 12rem;
+    border-left: 1px solid #999;
+    border-bottom: 1px solid #999;
+}
+
+.plot svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* The line keeps its width when the box stretches. */
+.line {
+    fill: none;
+    stroke: #222;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.base {
+    stroke: #777;
+    stroke-dasharray: 6 4;
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+/* A point: filled when the outcome happened, open when it did not. */
+.dot {
+    position: absolute;
+    width: 0.8rem;
+    height: 0.8rem;
+    padding: 0;
+    border: 2px solid #222;
+    border-radius: 50%;
+    background: #fff;
+    transform: translate(-50%, -50%);
+    cursor: default;
+}
+
+.dot.hit {
+    background: #222;
+}
+
+.note {
+    display: none;
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14rem;
+    padding: 0.4rem;
+    background: #fff;
+    border: 1px solid #999;
+    font-size: 0.8rem;
+    text-align: left;
+    color: #222;
+}
+
+.dot:hover .note,
+.dot:focus .note {
+    display: block;
+}
+
+figcaption {
+    grid-column: 2;
+    font-size: 0.85rem;
+    color: #555;
+    margin-top: 0.5rem;
+}

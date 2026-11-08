@@ -1,0 +1,47 @@
+@page "/register"
+@inject ForesightApi Api
+
+<PageTitle>Register</PageTitle>
+
+<h1>Register</h1>
+
+@if (done)
+{
+    <p>
+        Almost done. We sent a link to @email. Open it to confirm your
+        email, then sign in.
+    </p>
+}
+else
+{
+    @if (error is not null)
+    {
+        <p class="error">@error</p>
+    }
+    <label>Email <input type="email" @bind="email" /></label>
+    <label>Password
+        <input type="password" @bind="password" />
+    </label>
+    <p class="hint">At least @PasswordRules.MinLength characters.</p>
+    <button @onclick="RegisterAsync" disabled="@busy">Register</button>
+    <p>Have an account? <a href="/login">Sign in</a></p>
+}
+
+@code {
+    private string email = "";
+    private string password = "";
+    private bool busy;
+    private bool done;
+    private string? error;
+
+    private async Task RegisterAsync()
+    {
+        busy = true;
+        error = null;
+        var result = await Api.RegisterAsync(
+            new RegisterRequest(email, password));
+        done = result.Ok;
+        error = result.Error;
+        busy = false;
+    }
+}

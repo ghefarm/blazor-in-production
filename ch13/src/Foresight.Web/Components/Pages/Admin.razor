@@ -1,0 +1,76 @@
+@page "/admin"
+@inject ForesightApi Api
+@inject CircuitTokenStore Tokens
+@inject NavigationManager Nav
+
+<PageTitle>Admin</PageTitle>
+
+<h1>Admin</h1>
+
+@* The page decides nothing. Every card calls the API, which answers 403
+   to everyone but the admin. *@
+
+<section>
+    <h2>Post by hand</h2>
+    <p>Read each post, change the words if you like, then send it. The
+       tier decides the channel.</p>
+    <select @bind="feed">
+        <option value="weather">weather</option>
+        <option value="transit">transit</option>
+    </select>
+    <button @onclick="LoadDraftsAsync" disabled="@busy">Load today</button>
+    <p class="error">@draftError</p>
+    @foreach (var d in drafts)
+    {
+        <div class="draft">
+            <h3>@d.Title (@(d.Premium ? "premium" : "free") channel)</h3>
+            <textarea rows="4" @bind="texts[d.EventId]"></textarea>
+            <button @onclick="() => SendAsync(d)" disabled="@busy">
+                Send</button>
+            <p>@results.GetValueOrDefault(d.EventId)</p>
+        </div>
+    }
+</section>
+
+@code {
+    private string feed = "weather";
+    private List<ChannelDraft> drafts = [];
+    private readonly Dictionary<string, string> texts = new();
+    private readonly Dictionary<string, string> results = new();
+    private string? draftError;
+    private bool busy;
+
+    protected override void OnInitialized()
+    {
+        // A typed address starts a new circuit without a token (chapter 4):
+        // sign in, and the login page brings the admin back here.
+        if (Tokens.Token is null)
+            Nav.NavigateTo("/login?returnUrl=/admin");
+    }
+
+    private async Task LoadDraftsAsync()
+    {
+        busy = true;
+        var answer = await Api.ChannelDraftsAsync(feed);
+        busy = false;
+
+        draftError = answer.Error;
+        drafts = answer.Value ?? [];
+        texts.Clear();
+        results.Clear();
+        foreach (var d in drafts)
+            texts[d.EventId] = d.Text;
+    }
+
+    private async Task SendAsync(ChannelDraft draft)
+    {
+        busy = true;
+        var answer = await Api.PostToChannelAsync(
+            new ChannelPost(draft.Premium, texts[draft.EventId]));
+        busy = false;
+
+        // A post cannot be taken back from people's phones, so the page
+        // says exactly what happened, and sends nothing twice by itself.
+        results[draft.EventId] = answer.Ok ? "Sent." : answer.Error!;
+    }
+}

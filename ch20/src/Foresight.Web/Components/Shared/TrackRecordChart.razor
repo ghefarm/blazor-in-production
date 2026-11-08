@@ -1,0 +1,83 @@
+@using System.Globalization
+@*
+    The hit rate after each forecast, with the baseline as a dashed line.
+    The lines are SVG, stretched to the box. Every point is an HTML button
+    on top of them, so a keyboard reaches each one and a screen reader
+    reads its event and result. The note is CSS only (hover or focus): a
+    mouse event handled in C# would be a round trip over the circuit.
+*@
+
+<figure class="chart">
+    <div class="axis" aria-hidden="true">
+        <span style="top:0%">100%</span>
+        <span style="top:50%">50%</span>
+        <span style="top:100%">0%</span>
+    </div>
+    <div class="plot">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+             aria-hidden="true">
+            <line class="base" x1="0" x2="100"
+                  y1="@Css(Y(Baseline))" y2="@Css(Y(Baseline))" />
+            <polyline class="line" points="@Points()" />
+        </svg>
+        @for (var i = 0; i < settled.Count; i++)
+        {
+            var text = Describe(i);
+            <button type="button" aria-label="@text"
+                    class="dot @(settled[i].Happened == true ? "hit" : "")"
+                    style="left:@Css(X(i))%; top:@Css(Y(running[i]))%">
+                <span class="note" aria-hidden="true">@text</span>
+            </button>
+        }
+    </div>
+    <figcaption>
+        Line: the hit rate after each forecast (filled point: it happened).
+        Dashed: how often the outcome happened in all events.
+    </figcaption>
+</figure>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<RecordedForecastDto> Settled { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public double Baseline { get; set; }
+
+    private IReadOnlyList<RecordedForecastDto> settled = [];
+    private List<double> running = [];
+
+    protected override void OnParametersSet()
+    {
+        settled = Settled;
+        running = [];
+        var hits = 0;
+        for (var i = 0; i < settled.Count; i++)
+        {
+            if (settled[i].Happened == true)
+                hits++;
+            running.Add(hits / (double)(i + 1));
+        }
+    }
+
+    // Percent of the box. The first and last points keep off the edges.
+    private double X(int i) =>
+        settled.Count == 1 ? 50 : 2 + 96.0 * i / (settled.Count - 1);
+
+    private static double Y(double rate) => 100 * (1 - rate);
+
+    private string Points() => string.Join(' ',
+        running.Select((r, i) => $"{Css(X(i))},{Css(Y(r))}"));
+
+    // In English on every server, whatever language the host machine has.
+    private string Describe(int i)
+    {
+        var f = settled[i];
+        return string.Create(CultureInfo.InvariantCulture,
+            $"{f.StartsUtc:ddd d MMM}, {f.Title}: {f.Outcome} "
+            + $"{f.Probability:0%}, {(f.Happened == true ? "hit" : "miss")}."
+            + $" Hit rate after {i + 1}: {running[i]:0%}.");
+    }
+
+    private static string Css(double v) =>
+        v.ToString("0.##", CultureInfo.InvariantCulture);
+}

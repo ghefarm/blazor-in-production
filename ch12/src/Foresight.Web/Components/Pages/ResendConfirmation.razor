@@ -1,0 +1,42 @@
+@page "/confirm-email/resend"
+@inject ForesightApi Api
+
+<PageTitle>Send the link again</PageTitle>
+
+<h1>Send the link again</h1>
+
+@if (sent)
+{
+    <p>
+        If @email has an account that still waits for its confirmation, a
+        new link is on its way. A link we sent earlier keeps working for a
+        day, so the first mail that arrives is enough.
+    </p>
+    <p>Confirmed already? <a href="/login">Sign in</a>.</p>
+}
+else
+{
+    @if (error is not null)
+    {
+        <p class="error">@error</p>
+    }
+    <label>Email <input type="email" @bind="email" /></label>
+    <button @onclick="SendAsync" disabled="@busy">Send the link</button>
+}
+
+@code {
+    private string email = "";
+    private bool busy;
+    private bool sent;
+    private string? error;
+
+    private async Task SendAsync()
+    {
+        busy = true;
+        error = null;
+        var result = await Api.ResendConfirmationAsync(email.Trim());
+        sent = result.Ok;
+        error = result.Error;
+        busy = false;
+    }
+}

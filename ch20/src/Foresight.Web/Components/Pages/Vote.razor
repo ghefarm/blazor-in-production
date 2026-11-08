@@ -1,0 +1,97 @@
+@page "/vote"
+@using Foresight.Web.Components.Shared
+@inject ForesightApi Api
+@inject CircuitTokenStore Tokens
+
+<PageTitle>Which feed next?</PageTitle>
+
+<h1>Which feed should Foresight add next?</h1>
+<p class="hint">
+    One vote per account, and you can change it while the poll is open.
+    The result is a signal, not a promise.
+</p>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+@if (poll is null)
+{
+    <p>@(error is null ? "Loading..." : "")</p>
+}
+else
+{
+    <PollChart Poll="poll" />
+
+    @if (!poll.Open)
+    {
+        <p>Voting is closed.</p>
+    }
+    else if (Tokens.Token is null)
+    {
+        <p><a href="/login?returnUrl=/vote">Sign in</a> to vote.</p>
+    }
+    else
+    {
+        <fieldset>
+            <legend>Your vote</legend>
+            @foreach (var o in poll.Options)
+            {
+                <label class="choice">
+                    <input type="radio" name="feed"
+                           checked="@(Selected == o.Id)"
+                           @onchange="() => picked = o.Id" />
+                    @o.Label
+                </label>
+            }
+        </fieldset>
+        <button @onclick="SaveAsync"
+                disabled="@(busy || Selected is null
+                            || Selected == poll.MyVote)">
+            @(poll.MyVote is null ? "Cast my vote" : "Change my vote")
+        </button>
+        @if (saved)
+        {
+            <p>Your vote is saved.</p>
+        }
+    }
+    <p class="hint">
+        Your vote is stored with your account and deleted with it.
+    </p>
+}
+
+@code {
+    private PollDto? poll;
+    private string? picked;
+    private string? error;
+    private bool busy;
+    private bool saved;
+
+    // The choice on screen: a pick not yet saved, else the stored vote.
+    private string? Selected => picked ?? poll?.MyVote;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.PollAsync();
+        poll = result.Value;
+        error = result.Error;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Selected is not { } choice)
+            return;
+        busy = true;
+        saved = false;
+        var result = await Api.VoteAsync(choice);
+        if (result.Value is { } updated)
+        {
+            poll = updated;
+            picked = null;
+            saved = true;
+        }
+        error = result.Error;
+        busy = false;
+    }
+}

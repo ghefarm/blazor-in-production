@@ -1,0 +1,45 @@
+@page "/confirm-email"
+@inject ForesightApi Api
+
+<PageTitle>Confirm your email</PageTitle>
+
+<h1>Confirm your email</h1>
+
+@if (confirmed is null)
+{
+    <p>Checking the link...</p>
+}
+else if (confirmed == true)
+{
+    <p>Your email is confirmed. You can <a href="/login">sign in</a> now.</p>
+}
+else
+{
+    <p class="error">@error</p>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "email")]
+    public string? Email { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private bool? confirmed;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(Token))
+        {
+            confirmed = false;
+            error = "This link is not complete. Copy the whole address "
+                + "from the mail.";
+            return;
+        }
+
+        var result = await Api.ConfirmEmailAsync(Email, Token);
+        confirmed = result.Ok;
+        error = result.Error;
+    }
+}

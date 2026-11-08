@@ -1,0 +1,119 @@
+@page "/subscribe"
+@implements IDisposable
+@inject ForesightApi Api
+@inject CircuitTokenStore Tokens
+@inject VisitorRegion Region
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Premium</PageTitle>
+
+<h1>Premium</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+@if (status is null)
+{
+    <p>Loading...</p>
+}
+else if (status.HasPremium)
+{
+    <p>
+        Premium is on@(status.PremiumUntil is { } until
+            ? $" until {until:yyyy-MM-dd}" : "").
+    </p>
+}
+else if (!Region.OffersPremium)
+{
+    <p>@VisitorRegion.NotOfferedMessage</p>
+}
+else if (plans is not { ClientId.Length: > 0 })
+{
+    <p>Subscriptions are not open yet.</p>
+}
+else
+{
+    <fieldset disabled="@chosen">
+        <label>
+            <input type="radio" name="plan" checked="@(!yearly)"
+                   @onchange="() => yearly = false" />
+            One month
+        </label>
+        <label>
+            <input type="radio" name="plan" checked="@yearly"
+                   @onchange="() => yearly = true" />
+            One year
+        </label>
+    </fieldset>
+    <button @onclick="() => chosen = true" disabled="@chosen">
+        Continue to PayPal
+    </button>
+    <div id="paypal-button"></div>
+}
+
+@code {
+    private SubscriptionStatusDto? status;
+    private PlansDto? plans;
+    private bool yearly;
+    private bool chosen;
+    private bool buttonShown;
+    private string? error;
+    private DotNetObjectReference<Subscribe>? _self;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A new circuit has no token; the login sends the visitor back.
+        if (Tokens.Token is null)
+        {
+            Nav.NavigateTo("/login?returnUrl="
+                + Uri.EscapeDataString("/subscribe"));
+            return;
+        }
+
+        _self = DotNetObjectReference.Create(this);
+        plans = (await Api.PlansAsync()).Value;
+        var result = await Api.SubscriptionAsync();
+        status = result.Value;
+        error = result.Error;
+    }
+
+    // The plan is chosen: PayPal's button appears, for that plan. Chapter
+    // 11 puts the consent in this place.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!chosen || buttonShown || plans is null)
+            return;
+        buttonShown = true;
+        var plan = yearly ? plans.YearlyPlanId : plans.MonthlyPlanId;
+        try
+        {
+            await JS.InvokeVoidAsync("showSubscribeButton", "#paypal-button",
+                plans.ClientId, plan, Tokens.Email, _self);
+        }
+        catch (JSException)
+        {
+            // PayPal's script did not load: a blocker, or no network. The
+            // page says so instead of breaking the circuit.
+            error = "PayPal's button could not be loaded. Please reload "
+                + "the page.";
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>PayPal approved the subscription in the browser.</summary>
+    [JSInvokable]
+    public async Task OnApprovedAsync(string subscriptionId)
+    {
+        // Only the id goes to the server; the server asks PayPal the rest
+        // and records it only when the three checks pass (chapter 10).
+        var result = await Api.ClaimAsync(subscriptionId);
+        status = result.Value ?? status;
+        error = result.Error;
+        StateHasChanged();
+    }
+
+    public void Dispose() => _self?.Dispose();
+}

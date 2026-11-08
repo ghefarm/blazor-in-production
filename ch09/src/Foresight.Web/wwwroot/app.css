@@ -1,0 +1,80 @@
+h1:focus {
+    outline: none;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+/* Foresight: a plain layout, so the pages stay short. */
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+header nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.brand {
+    font-weight: bold;
+    text-decoration: none;
+}
+
+main {
+    max-width: 40rem;
+    padding: 1rem;
+}
+
+label {
+    display: block;
+    margin: 0.75rem 0;
+}
+
+label input {
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    margin-top: 0.25rem;
+}
+
+.error {
+    color: #b00020;
+}
+
+.hint {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+button.link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #0645ad;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+code.key {
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+}

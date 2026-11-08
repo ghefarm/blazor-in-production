@@ -1,0 +1,48 @@
+@using System.Globalization
+@*
+    The poll as one bar chart. It is one measure, so every bar has the same
+    fill and starts at zero: no candidate looks larger than its count. The
+    count and the share are printed beside each bar, so nothing depends on
+    a mouse, and nothing costs a round trip over the circuit.
+*@
+
+<ul class="bars">
+    @foreach (var o in Poll.Options)
+    {
+        <li>
+            <span class="label">
+                @o.Label
+                @if (Poll.MyVote == o.Id)
+                {
+                    <em class="mine">your vote</em>
+                }
+            </span>
+            <span class="track">
+                <span class="bar" style="width:@Width(o)"></span>
+            </span>
+            <span class="value">@o.Votes (@Share(o))</span>
+        </li>
+    }
+</ul>
+<p class="hint">
+    @(Poll.TotalVotes == 1 ? "1 vote" : $"{Poll.TotalVotes} votes") in total
+</p>
+
+@code {
+    [Parameter, EditorRequired]
+    public PollDto Poll { get; set; } = default!;
+
+    // A bar is its count against the largest count, from zero. A chart
+    // that starts at 40 would turn 52 against 48 into a landslide.
+    private string Width(PollOptionDto o)
+    {
+        var max = Poll.Options.Max(x => x.Votes);
+        var part = max == 0 ? 0 : (double)o.Votes / max;
+        return (part * 100).ToString("0.#", CultureInfo.InvariantCulture)
+            + "%";
+    }
+
+    private string Share(PollOptionDto o) =>
+        (Poll.TotalVotes == 0 ? 0 : (double)o.Votes / Poll.TotalVotes)
+            .ToString("0%", CultureInfo.InvariantCulture);
+}

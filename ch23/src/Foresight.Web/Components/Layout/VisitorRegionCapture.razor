@@ -1,0 +1,34 @@
+@implements IDisposable
+@inject PersistentComponentState State
+@inject IHttpContextAccessor HttpContext
+@inject VisitorRegion Region
+
+@* Draws nothing. Reads the visitor's country once and hands it from the
+   prerender, which has the request, to the circuit, which has none. It
+   sits in the layout, because a visitor can come in on any page. *@
+
+@code {
+    private const string Key = "visitor-country";
+
+    private PersistingComponentStateSubscription _persisting;
+
+    protected override void OnInitialized()
+    {
+        // At the end of the prerender: write the country into the page.
+        _persisting = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson(Key, Region.Country);
+            return Task.CompletedTask;
+        });
+
+        // In the circuit: take it from the page. In the prerender: read
+        // the header that Cloudflare added to the request.
+        if (State.TryTakeFromJson<string?>(Key, out var persisted))
+            Region.Capture(persisted);
+        else
+            Region.Capture(HttpContext.HttpContext?.Request
+                .Headers["CF-IPCountry"].FirstOrDefault());
+    }
+
+    public void Dispose() => _persisting.Dispose();
+}

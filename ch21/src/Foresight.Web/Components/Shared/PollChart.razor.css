@@ -1,0 +1,35 @@
+/* One fill for every bar: the length is the only thing that differs. */
+.bars {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0.5rem;
+}
+
+.bars li {
+    display: grid;
+    grid-template-columns: 8rem 1fr 6rem;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.track {
+    background: #eee;
+    height: 1.2rem;
+}
+
+.bar {
+    display: block;
+    height: 100%;
+    background: #555;
+}
+
+.value {
+    font-variant-numeric: tabular-nums;
+}
+
+/* The visitor's own vote, in words under the label. */
+.mine {
+    display: block;
+    font-size: 0.8rem;
+}

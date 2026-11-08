@@ -1,0 +1,49 @@
+@page "/"
+@inject ForesightApi Api
+
+<PageTitle>Foresight</PageTitle>
+
+<h1>Today's forecasts</h1>
+
+@if (error is not null)
+{
+    <p>@error</p>
+}
+else if (Forecasts is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Starts (UTC)</th><th>Event</th>
+                <th>Outcome</th><th>Chance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var f in Forecasts)
+            {
+                <tr>
+                    <td>@f.StartsUtc.ToString("HH:mm")</td>
+                    <td>@f.Title</td>
+                    <td>@f.Outcome</td>
+                    <td>@($"{f.Probability * 100:0}%")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ForecastDto>? Forecasts { get; set; }
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.ForecastsAsync("weather");
+        Forecasts = result.Value;
+        error = result.Error;
+    }
+}

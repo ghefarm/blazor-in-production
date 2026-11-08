@@ -1,0 +1,130 @@
+@page "/account/two-factor"
+@inject ForesightApi Api
+@inject CircuitTokenStore Tokens
+@inject NavigationManager Nav
+
+<PageTitle>Two-factor sign-in</PageTitle>
+
+<h1>Two-factor sign-in</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+@if (status is null)
+{
+    <p>Loading...</p>
+}
+else if (!status.Available)
+{
+    <p>Two-factor sign-in is not offered for this account.</p>
+}
+else if (codes is not null)
+{
+    <p>
+        Two-factor sign-in is on. Keep these recovery codes somewhere safe.
+        Each one works once, if your phone is lost.
+    </p>
+    <ul class="codes">
+        @foreach (var c in codes)
+        {
+            <li><code>@c</code></li>
+        }
+    </ul>
+    <button @onclick="() => codes = null">I have saved them</button>
+}
+else if (status.Enabled)
+{
+    <p>
+        Two-factor sign-in is on. Recovery codes left:
+        @status.RecoveryCodesLeft.
+    </p>
+    <label>Password, to switch it off
+        <input type="password" @bind="password" />
+    </label>
+    <button @onclick="DisableAsync" disabled="@busy">Switch off</button>
+}
+else if (key is not null)
+{
+    <p>
+        In your authenticator app, add an account and type in this key:
+    </p>
+    <p><code class="key">@key</code></p>
+    <label>Then enter the code the app shows
+        <input @bind="code" autocomplete="one-time-code" inputmode="numeric" />
+    </label>
+    <button @onclick="EnableAsync" disabled="@busy">Switch on</button>
+}
+else
+{
+    <p>
+        With two-factor sign-in, a sign-in needs your password and a code
+        from an app on your phone.
+    </p>
+    <button @onclick="SetUpAsync" disabled="@busy">Set it up</button>
+}
+
+@code {
+    private TwoFactorStatus? status;
+    private string? key;
+    private IReadOnlyList<string>? codes;
+    private string code = "";
+    private string password = "";
+    private bool busy;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A new circuit has no token: after a reload, a typed address or a
+        // link. The login sends the visitor back here afterwards.
+        if (Tokens.Token is null)
+        {
+            Nav.NavigateTo("/login?returnUrl="
+                + Uri.EscapeDataString("/account/two-factor"));
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.TwoFactorAsync();
+        status = result.Value;
+        error = result.Error;
+    }
+
+    private async Task SetUpAsync()
+    {
+        busy = true;
+        var result = await Api.SetUpTwoFactorAsync();
+        key = result.Value?.Key;
+        error = result.Error;
+        busy = false;
+    }
+
+    private async Task EnableAsync()
+    {
+        busy = true;
+        var result = await Api.EnableTwoFactorAsync(code);
+        error = result.Error;
+        if (result.Ok)
+        {
+            codes = result.Value!.Codes;
+            key = null;
+            await LoadAsync();
+        }
+        busy = false;
+    }
+
+    private async Task DisableAsync()
+    {
+        busy = true;
+        var result = await Api.DisableTwoFactorAsync(password);
+        error = result.Error;
+        password = "";
+        if (result.Ok)
+            await LoadAsync();
+        busy = false;
+    }
+}

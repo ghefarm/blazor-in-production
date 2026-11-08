@@ -1,0 +1,75 @@
+@page "/track-record"
+@page "/track-record/{Feed}"
+@using System.Globalization
+@using Foresight.Web.Components.Shared
+@inject ForesightApi Api
+
+<PageTitle>Track record</PageTitle>
+
+<h1>Track record</h1>
+<p class="hint">
+    Every forecast that went out and said yes, scored against what really
+    happened. Premium forecasts appear once their result is in.
+</p>
+<p>
+    <a href="/track-record/weather">Weather</a> |
+    <a href="/track-record/transit">Transit</a>
+</p>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+else if (record is null)
+{
+    <p>Loading...</p>
+}
+else if (settled.Count == 0)
+{
+    <p>No results yet. A forecast is scored once its result is in.</p>
+}
+else
+{
+    <p>
+        <strong>Hit rate @Pct(hits, settled.Count)</strong>:
+        @hits of @settled.Count forecasts came true@(Open)
+    </p>
+    <p>
+        <strong>Baseline @Pct(record.EventsHappened, record.Events)</strong>:
+        the outcome happened in @record.EventsHappened of all
+        @record.Events events of the period. A forecaster who said yes
+        every time would have scored this.
+    </p>
+    <TrackRecordChart Settled="settled"
+                      Baseline="@Rate(record.EventsHappened, record.Events)" />
+}
+
+@code {
+    [Parameter]
+    public string? Feed { get; set; }
+
+    private TrackRecordDto? record;
+    private List<RecordedForecastDto> settled = [];
+    private int hits;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var result = await Api.TrackRecordAsync(Feed ?? "weather");
+        record = result.Value;
+        error = result.Error;
+        settled = record?.Forecasts.Where(f => f.Happened is not null)
+            .ToList() ?? [];
+        hits = settled.Count(f => f.Happened == true);
+    }
+
+    private string Open => record!.Forecasts.Count > settled.Count
+        ? $", {record.Forecasts.Count - settled.Count} still open."
+        : ".";
+
+    private static double Rate(int part, int whole) =>
+        whole == 0 ? 0 : (double)part / whole;
+
+    private static string Pct(int part, int whole) =>
+        Rate(part, whole).ToString("0%", CultureInfo.InvariantCulture);
+}

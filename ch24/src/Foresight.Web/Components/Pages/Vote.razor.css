@@ -1,0 +1,15 @@
+fieldset {
+    border: 1px solid #ddd;
+    margin: 1rem 0;
+}
+
+/* A radio sits before its text, not on a line of its own. */
+label.choice {
+    margin: 0.4rem 0;
+}
+
+label.choice input {
+    display: inline;
+    width: auto;
+    margin: 0 0.5rem 0 0;
+}

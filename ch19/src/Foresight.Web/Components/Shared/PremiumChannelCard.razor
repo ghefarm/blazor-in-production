@@ -1,0 +1,39 @@
+@inject ForesightApi Api
+
+@* For an account with premium, on the subscribe page. The link is asked
+   for only when the subscriber wants it, so an account that never opens
+   the channel never gets one. *@
+
+<section>
+    <h2>The premium channel</h2>
+    @if (link is null)
+    {
+        <p>Premium forecasts also go to a private Telegram channel. Your
+           link lets in the first Telegram account that uses it, and no
+           other, so do not pass it on.</p>
+        <button @onclick="GetLinkAsync" disabled="@busy">
+            Get my link</button>
+    }
+    else
+    {
+        <p><a href="@link" target="_blank" rel="noopener">Open the premium
+           channel in Telegram</a> and ask to join. The bot answers on its
+           next round, every few minutes during the day.</p>
+    }
+    <p class="error">@error</p>
+</section>
+
+@code {
+    private string? link;
+    private string? error;
+    private bool busy;
+
+    private async Task GetLinkAsync()
+    {
+        busy = true;
+        var result = await Api.PremiumChannelLinkAsync();
+        link = result.Value?.Link;
+        error = result.Error;
+        busy = false;
+    }
+}

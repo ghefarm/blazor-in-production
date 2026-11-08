@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Foresight.Api/Foresight.Api.csproj" />
+    <Project Path="src/Foresight.Shared/Foresight.Shared.csproj" />
+    <Project Path="src/Foresight.Web/Foresight.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Foresight.Api.Tests/Foresight.Api.Tests.csproj" />
+  </Folder>
+</Solution>

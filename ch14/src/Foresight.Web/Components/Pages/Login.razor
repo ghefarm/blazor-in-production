@@ -1,0 +1,91 @@
+@page "/login"
+@inject ForesightApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Sign in</PageTitle>
+
+<h1>Sign in</h1>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+
+@if (codeNeeded)
+{
+    <p>
+        This account uses two-factor sign-in.
+        @(useRecovery ? "Enter one of your recovery codes."
+                      : "Enter the 6-digit code from your app.")
+    </p>
+    <label>@(useRecovery ? "Recovery code" : "Code")
+        <input @bind="code" autocomplete="one-time-code"
+               inputmode="@(useRecovery ? "text" : "numeric")" />
+    </label>
+    <button @onclick="SignInAsync" disabled="@busy">Verify</button>
+    <p>
+        <button class="link" @onclick="ToggleRecovery">
+            @(useRecovery ? "Use the code from the app"
+                          : "Phone not at hand? Use a recovery code")
+        </button>
+    </p>
+}
+else
+{
+    <label>Email <input type="email" @bind="email" /></label>
+    <label>Password <input type="password" @bind="password" /></label>
+    <button @onclick="SignInAsync" disabled="@busy">Sign in</button>
+    <p>No account yet? <a href="/register">Register</a></p>
+}
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string code = "";
+    private bool codeNeeded;
+    private bool useRecovery;
+    private bool busy;
+    private string? error;
+
+    // Where to go after the sign-in, for example the page that asked for it.
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    // Only a path on this site. Following any returnUrl would turn the
+    // login page into a door to someone else's site.
+    private string Destination =>
+        ReturnUrl is { Length: > 0 } url && url[0] == '/'
+            && (url.Length == 1 || (url[1] != '/' && url[1] != '\\'))
+            ? url
+            : "/";
+
+    private async Task SignInAsync()
+    {
+        busy = true;
+        error = null;
+
+        // The second step sends the same request again, with the code.
+        var request = new LoginRequest(email, password,
+            Code: codeNeeded && !useRecovery ? code : null,
+            RecoveryCode: codeNeeded && useRecovery ? code : null);
+        var result = await Api.SignInAsync(request);
+
+        if (result.Value?.Token is not null)
+            Nav.NavigateTo(Destination);
+        else if (result.Value?.CodeNeeded == true)
+        {
+            codeNeeded = true;
+            code = "";
+        }
+        else
+            error = result.Error;
+        busy = false;
+    }
+
+    private void ToggleRecovery()
+    {
+        useRecovery = !useRecovery;
+        code = "";
+        error = null;
+    }
+}
